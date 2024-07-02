@@ -12,6 +12,8 @@ import UIKit
 public class SheetViewController: UIViewController {
     public private(set) var options: SheetOptions
     
+    public var heightChanged: ((CGFloat) -> Void)?
+    
     /// Default value for autoAdjustToKeyboard. Defaults to true.
     public static var autoAdjustToKeyboard = true
     /// Automatically grow/move the sheet to accomidate the keyboard. Defaults to false.
@@ -370,7 +372,7 @@ public class SheetViewController: UIViewController {
             self.prePanHeight = self.contentViewController.view.bounds.height
             self.isPanning = true
         }
-        
+
         let minHeight: CGFloat = self.height(for: self.orderedSizes.first)
         let maxHeight: CGFloat
         if self.allowPullingPastMaxHeight {
@@ -378,7 +380,7 @@ public class SheetViewController: UIViewController {
         } else {
             maxHeight = max(self.height(for: self.orderedSizes.last), self.prePanHeight)
         }
-        
+
         var newHeight = max(0, self.prePanHeight + (self.firstPanPoint.y - point.y))
         var offset: CGFloat = 0
         if newHeight < minHeight {
@@ -394,7 +396,7 @@ public class SheetViewController: UIViewController {
                 newHeight = maxHeight
             }
         }
-        
+
         switch gesture.state {
             case .cancelled, .failed:
                 UIView.animate(withDuration: 0.3, delay: 0, options: [.curveEaseOut], animations: {
@@ -408,7 +410,11 @@ public class SheetViewController: UIViewController {
             
             case .began, .changed:
                 self.contentViewHeightConstraint.constant = newHeight
-                
+
+                // Call the heightChanged closure
+                self.heightChanged?(newHeight)
+
+                // Existing code...
                 if offset > 0 {
                     let percent = max(0, min(1, offset / max(1, newHeight)))
                     self.transition.setPresentor(percentComplete: percent)
@@ -424,9 +430,9 @@ public class SheetViewController: UIViewController {
                     // They swiped hard, always just close the sheet when they do
                     finalHeight = -1
                 }
-                
+
                 let animationDuration = TimeInterval(abs(velocity*0.0002) + 0.2)
-                
+
                 guard finalHeight > 0 || !(self.dismissOnPull && self.shouldDismiss?(self) ?? true) else {
                     // Dismiss
                     UIView.animate(
@@ -445,7 +451,7 @@ public class SheetViewController: UIViewController {
                     })
                     return
                 }
-                
+
                 var newSize = self.currentSize
                 if point.y < 0 {
                     // We need to move to the next larger one
@@ -470,7 +476,7 @@ public class SheetViewController: UIViewController {
                 }
                 let previousSize = self.currentSize
                 self.currentSize = newSize
-                
+
                 let newContentHeight = self.height(for: newSize)
                 UIView.animate(
                     withDuration: animationDuration,
@@ -496,6 +502,7 @@ public class SheetViewController: UIViewController {
                 break // Do nothing
         }
     }
+
 
     private func registerKeyboardObservers() {
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardShown(_:)), name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
@@ -529,7 +536,7 @@ public class SheetViewController: UIViewController {
         })
     }
     
-    private func height(for size: SheetSize?) -> CGFloat {
+    public func height(for size: SheetSize?) -> CGFloat {
         guard let size = size else { return 0 }
         let contentHeight: CGFloat
         let fullscreenHeight: CGFloat
